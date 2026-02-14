@@ -39,9 +39,33 @@ func isImagenModel(model string) bool {
 	return strings.Contains(lowerModel, "imagen")
 }
 
+func isVertexClaudeModel(model string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "claude-")
+}
+
+func vertexTargetFormat(model string) string {
+	if isVertexClaudeModel(model) {
+		return "claude"
+	}
+	return "gemini"
+}
+
+func getVertexPublisher(model string) string {
+	if isVertexClaudeModel(model) {
+		return "anthropic"
+	}
+	return "google"
+}
+
 // getVertexAction returns the appropriate action for the given model.
 // Imagen models use "predict", while Gemini models use "generateContent".
 func getVertexAction(model string, isStream bool) string {
+	if isVertexClaudeModel(model) {
+		if isStream {
+			return "streamRawPredict"
+		}
+		return "rawPredict"
+	}
 	if isImagenModel(model) {
 		return "predict"
 	}
@@ -49,6 +73,29 @@ func getVertexAction(model string, isStream bool) string {
 		return "streamGenerateContent"
 	}
 	return "generateContent"
+}
+
+func vertexServiceAccountModelURL(location, projectID, model, action string) string {
+	baseURL := vertexBaseURL(location)
+	publisher := getVertexPublisher(model)
+	return fmt.Sprintf(
+		"%s/%s/projects/%s/locations/%s/publishers/%s/models/%s:%s",
+		baseURL,
+		vertexAPIVersion,
+		projectID,
+		location,
+		publisher,
+		model,
+		action,
+	)
+}
+
+func vertexAPIKeyModelURL(baseURL, model, action string) string {
+	if baseURL == "" {
+		baseURL = "https://generativelanguage.googleapis.com"
+	}
+	publisher := getVertexPublisher(model)
+	return fmt.Sprintf("%s/%s/publishers/%s/models/%s:%s", baseURL, vertexAPIVersion, publisher, model, action)
 }
 
 // convertImagenToGeminiResponse converts Imagen API response to Gemini format
@@ -314,9 +361,9 @@ func (e *GeminiVertexExecutor) executeWithServiceAccount(ctx context.Context, au
 		}
 		body = imagenBody
 	} else {
-		// Standard Gemini translation flow
+		// Standard translation flow based on target provider format.
 		from := opts.SourceFormat
-		to := sdktranslator.FromString("gemini")
+		to := sdktranslator.FromString(vertexTargetFormat(baseModel))
 
 		originalPayloadSource := req.Payload
 		if len(opts.OriginalRequest) > 0 {
@@ -343,8 +390,7 @@ func (e *GeminiVertexExecutor) executeWithServiceAccount(ctx context.Context, au
 			action = "countTokens"
 		}
 	}
-	baseURL := vertexBaseURL(location)
-	url := fmt.Sprintf("%s/%s/projects/%s/locations/%s/publishers/google/models/%s:%s", baseURL, vertexAPIVersion, projectID, location, baseModel, action)
+	url := vertexServiceAccountModelURL(location, projectID, baseModel, action)
 	if opts.Alt != "" && action != "countTokens" {
 		url = url + fmt.Sprintf("?$alt=%s", opts.Alt)
 	}
@@ -416,7 +462,7 @@ func (e *GeminiVertexExecutor) executeWithServiceAccount(ctx context.Context, au
 
 	// Standard Gemini translation (works for both Gemini and converted Imagen responses)
 	from := opts.SourceFormat
-	to := sdktranslator.FromString("gemini")
+	to := sdktranslator.FromString(vertexTargetFormat(baseModel))
 	var param any
 	out := sdktranslator.TranslateNonStream(ctx, to, from, req.Model, opts.OriginalRequest, body, data, &param)
 	resp = cliproxyexecutor.Response{Payload: []byte(out)}
@@ -458,11 +504,7 @@ func (e *GeminiVertexExecutor) executeWithAPIKey(ctx context.Context, auth *clip
 		}
 	}
 
-	// For API key auth, use simpler URL format without project/location
-	if baseURL == "" {
-		baseURL = "https://generativelanguage.googleapis.com"
-	}
-	url := fmt.Sprintf("%s/%s/publishers/google/models/%s:%s", baseURL, vertexAPIVersion, baseModel, action)
+	url := vertexAPIKeyModelURL(baseURL, baseModel, action)
 	if opts.Alt != "" && action != "countTokens" {
 		url = url + fmt.Sprintf("?$alt=%s", opts.Alt)
 	}
@@ -536,7 +578,7 @@ func (e *GeminiVertexExecutor) executeStreamWithServiceAccount(ctx context.Conte
 	defer reporter.trackFailure(ctx, &err)
 
 	from := opts.SourceFormat
-	to := sdktranslator.FromString("gemini")
+	to := sdktranslator.FromString(vertexTargetFormat(baseModel))
 
 	originalPayloadSource := req.Payload
 	if len(opts.OriginalRequest) > 0 {
@@ -557,8 +599,7 @@ func (e *GeminiVertexExecutor) executeStreamWithServiceAccount(ctx context.Conte
 	body, _ = sjson.SetBytes(body, "model", baseModel)
 
 	action := getVertexAction(baseModel, true)
-	baseURL := vertexBaseURL(location)
-	url := fmt.Sprintf("%s/%s/projects/%s/locations/%s/publishers/google/models/%s:%s", baseURL, vertexAPIVersion, projectID, location, baseModel, action)
+	url := vertexServiceAccountModelURL(location, projectID, baseModel, action)
 	// Imagen models don't support streaming, skip SSE params
 	if !isImagenModel(baseModel) {
 		if opts.Alt == "" {
@@ -661,7 +702,7 @@ func (e *GeminiVertexExecutor) executeStreamWithAPIKey(ctx context.Context, auth
 	defer reporter.trackFailure(ctx, &err)
 
 	from := opts.SourceFormat
-	to := sdktranslator.FromString("gemini")
+	to := sdktranslator.FromString(vertexTargetFormat(baseModel))
 
 	originalPayloadSource := req.Payload
 	if len(opts.OriginalRequest) > 0 {
@@ -682,11 +723,7 @@ func (e *GeminiVertexExecutor) executeStreamWithAPIKey(ctx context.Context, auth
 	body, _ = sjson.SetBytes(body, "model", baseModel)
 
 	action := getVertexAction(baseModel, true)
-	// For API key auth, use simpler URL format without project/location
-	if baseURL == "" {
-		baseURL = "https://generativelanguage.googleapis.com"
-	}
-	url := fmt.Sprintf("%s/%s/publishers/google/models/%s:%s", baseURL, vertexAPIVersion, baseModel, action)
+	url := vertexAPIKeyModelURL(baseURL, baseModel, action)
 	// Imagen models don't support streaming, skip SSE params
 	if !isImagenModel(baseModel) {
 		if opts.Alt == "" {
@@ -781,6 +818,9 @@ func (e *GeminiVertexExecutor) executeStreamWithAPIKey(ctx context.Context, auth
 // countTokensWithServiceAccount counts tokens using service account credentials.
 func (e *GeminiVertexExecutor) countTokensWithServiceAccount(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, projectID, location string, saJSON []byte) (cliproxyexecutor.Response, error) {
 	baseModel := thinking.ParseSuffix(req.Model).ModelName
+	if isVertexClaudeModel(baseModel) {
+		return cliproxyexecutor.Response{}, statusErr{code: http.StatusNotImplemented, msg: "countTokens not supported for vertex claude models"}
+	}
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("gemini")
@@ -799,8 +839,7 @@ func (e *GeminiVertexExecutor) countTokensWithServiceAccount(ctx context.Context
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "generationConfig")
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "safetySettings")
 
-	baseURL := vertexBaseURL(location)
-	url := fmt.Sprintf("%s/%s/projects/%s/locations/%s/publishers/google/models/%s:%s", baseURL, vertexAPIVersion, projectID, location, baseModel, "countTokens")
+	url := vertexServiceAccountModelURL(location, projectID, baseModel, "countTokens")
 
 	httpReq, errNewReq := http.NewRequestWithContext(respCtx, http.MethodPost, url, bytes.NewReader(translatedReq))
 	if errNewReq != nil {
@@ -865,6 +904,9 @@ func (e *GeminiVertexExecutor) countTokensWithServiceAccount(ctx context.Context
 // countTokensWithAPIKey handles token counting using API key credentials.
 func (e *GeminiVertexExecutor) countTokensWithAPIKey(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, apiKey, baseURL string) (cliproxyexecutor.Response, error) {
 	baseModel := thinking.ParseSuffix(req.Model).ModelName
+	if isVertexClaudeModel(baseModel) {
+		return cliproxyexecutor.Response{}, statusErr{code: http.StatusNotImplemented, msg: "countTokens not supported for vertex claude models"}
+	}
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("gemini")
@@ -883,11 +925,7 @@ func (e *GeminiVertexExecutor) countTokensWithAPIKey(ctx context.Context, auth *
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "generationConfig")
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "safetySettings")
 
-	// For API key auth, use simpler URL format without project/location
-	if baseURL == "" {
-		baseURL = "https://generativelanguage.googleapis.com"
-	}
-	url := fmt.Sprintf("%s/%s/publishers/google/models/%s:%s", baseURL, vertexAPIVersion, baseModel, "countTokens")
+	url := vertexAPIKeyModelURL(baseURL, baseModel, "countTokens")
 
 	httpReq, errNewReq := http.NewRequestWithContext(respCtx, http.MethodPost, url, bytes.NewReader(translatedReq))
 	if errNewReq != nil {
