@@ -14,9 +14,9 @@ ARG BUILD_DATE=unknown
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X 'main.Version=${VERSION}' -X 'main.Commit=${COMMIT}' -X 'main.BuildDate=${BUILD_DATE}'" -o ./CLIProxyAPI ./cmd/server/
 
-FROM alpine:3.22.0
+FROM node:20-alpine
 
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata ca-certificates python3 make g++ curl
 
 RUN mkdir /CLIProxyAPI
 
@@ -31,5 +31,9 @@ EXPOSE 8317
 ENV TZ=Asia/Shanghai
 
 RUN cp /usr/share/zoneinfo/${TZ} /etc/localtime && echo "${TZ}" > /etc/timezone
+
+# Install CLI tools (optional - can be done manually after container starts)
+# Uncomment to auto-install:
+# RUN npm install -g @google/gemini-cli @anthropic-ai/claude-code @openai/codex
 
 CMD ["./CLIProxyAPI"]

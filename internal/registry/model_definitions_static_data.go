@@ -209,6 +209,30 @@ func GetGeminiModels() []*ModelInfo {
 func GetGeminiVertexModels() []*ModelInfo {
 	return []*ModelInfo{
 		{
+			ID:                         "claude-sonnet-4-5@20250929",
+			Object:                     "model",
+			Created:                    1759104000, // 2025-09-29
+			OwnedBy:                    "anthropic",
+			Type:                       "claude",
+			DisplayName:                "Claude 4.5 Sonnet (Vertex)",
+			ContextLength:              200000,
+			MaxCompletionTokens:        64000,
+			SupportedGenerationMethods: []string{"rawPredict", "streamRawPredict"},
+			Thinking:                   &ThinkingSupport{Min: 1024, Max: 128000, ZeroAllowed: true, DynamicAllowed: false},
+		},
+		{
+			ID:                         "claude-opus-4-5@20251101",
+			Object:                     "model",
+			Created:                    1761955200, // 2025-11-01
+			OwnedBy:                    "anthropic",
+			Type:                       "claude",
+			DisplayName:                "Claude 4.5 Opus (Vertex)",
+			ContextLength:              200000,
+			MaxCompletionTokens:        64000,
+			SupportedGenerationMethods: []string{"rawPredict", "streamRawPredict"},
+			Thinking:                   &ThinkingSupport{Min: 1024, Max: 128000, ZeroAllowed: true, DynamicAllowed: false},
+		},
+		{
 			ID:                         "gemini-2.5-pro",
 			Object:                     "model",
 			Created:                    1750118400,
