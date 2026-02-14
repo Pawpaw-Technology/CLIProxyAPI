@@ -53,4 +53,13 @@ func TestVertexModelURL_UsesPublisherByModel(t *testing.T) {
 	if urlAPIKeyClaude != "https://aiplatform.googleapis.com/v1/publishers/anthropic/models/claude-sonnet-4-5-20250929:rawPredict" {
 		t.Fatalf("unexpected api-key claude url: %s", urlAPIKeyClaude)
 	}
+
+	urlAPIKeyWithProject := vertexAPIKeyModelURL(
+		"https://aiplatform.googleapis.com/v1/projects/911345077074/locations/global",
+		"claude-sonnet-4-5-20250929",
+		"rawPredict",
+	)
+	if urlAPIKeyWithProject != "https://aiplatform.googleapis.com/v1/projects/911345077074/locations/global/publishers/anthropic/models/claude-sonnet-4-5-20250929:rawPredict" {
+		t.Fatalf("unexpected api-key claude url with project/location: %s", urlAPIKeyWithProject)
+	}
 }

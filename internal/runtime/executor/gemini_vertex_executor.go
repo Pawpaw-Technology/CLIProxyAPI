@@ -94,7 +94,15 @@ func vertexAPIKeyModelURL(baseURL, model, action string) string {
 	if baseURL == "" {
 		baseURL = "https://generativelanguage.googleapis.com"
 	}
+	baseURL = strings.TrimRight(baseURL, "/")
 	publisher := getVertexPublisher(model)
+
+	// Allow baseURL to include fully-qualified Vertex project/location prefix:
+	// https://aiplatform.googleapis.com/v1/projects/<project>/locations/<location>
+	if strings.Contains(baseURL, "/projects/") && strings.Contains(baseURL, "/locations/") {
+		return fmt.Sprintf("%s/publishers/%s/models/%s:%s", baseURL, publisher, model, action)
+	}
+
 	return fmt.Sprintf("%s/%s/publishers/%s/models/%s:%s", baseURL, vertexAPIVersion, publisher, model, action)
 }
 
