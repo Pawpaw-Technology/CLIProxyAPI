@@ -60,8 +60,25 @@ func ConvertOpenAIRequestToCodex(modelName string, inputRawJSON []byte, stream b
 		out, _ = sjson.Set(out, "reasoning.effort", "medium")
 	}
 	out, _ = sjson.Set(out, "parallel_tool_calls", true)
-	out, _ = sjson.Set(out, "reasoning.summary", "auto")
-	out, _ = sjson.Set(out, "include", []string{"reasoning.encrypted_content"})
+
+	// Respect explicit reasoning summary/include from callers; fallback to safe defaults.
+	summary := strings.TrimSpace(gjson.GetBytes(rawJSON, "reasoning.summary").String())
+	if summary == "" {
+		summary = strings.TrimSpace(gjson.GetBytes(rawJSON, "reasoning_summary").String())
+	}
+	if summary == "" {
+		summary = strings.TrimSpace(gjson.GetBytes(rawJSON, "reasoningSummary").String())
+	}
+	if summary == "" {
+		summary = "auto"
+	}
+	out, _ = sjson.Set(out, "reasoning.summary", summary)
+
+	if include := gjson.GetBytes(rawJSON, "include"); include.Exists() {
+		out, _ = sjson.SetRaw(out, "include", include.Raw)
+	} else {
+		out, _ = sjson.Set(out, "include", []string{"reasoning.encrypted_content"})
+	}
 
 	// Model
 	out, _ = sjson.Set(out, "model", modelName)

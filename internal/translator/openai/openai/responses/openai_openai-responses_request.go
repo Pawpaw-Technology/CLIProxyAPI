@@ -205,6 +205,17 @@ func ConvertOpenAIResponsesRequestToOpenAIChatCompletions(modelName string, inpu
 		}
 	}
 
+	if reasoningSummary := root.Get("reasoning.summary"); reasoningSummary.Exists() {
+		summary := strings.TrimSpace(reasoningSummary.String())
+		if summary != "" {
+			out, _ = sjson.Set(out, "reasoning.summary", summary)
+		}
+	}
+
+	if include := root.Get("include"); include.Exists() {
+		out, _ = sjson.SetRaw(out, "include", include.Raw)
+	}
+
 	// Convert tool_choice if present
 	if toolChoice := root.Get("tool_choice"); toolChoice.Exists() {
 		out, _ = sjson.Set(out, "tool_choice", toolChoice.String())
