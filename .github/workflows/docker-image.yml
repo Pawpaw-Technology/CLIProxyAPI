@@ -15,6 +15,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Ensure OrbStack is running
+        shell: bash
+        run: |
+          if ! docker info >/dev/null 2>&1; then
+            command -v orbctl >/dev/null 2>&1 && orbctl start || true
+            open -a OrbStack 2>/dev/null || true
+            for _ in {1..30}; do
+              docker info >/dev/null 2>&1 && break
+              sleep 1
+            done
+          fi
+          docker info >/dev/null
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to DockerHub
@@ -46,6 +58,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Ensure OrbStack is running
+        shell: bash
+        run: |
+          if ! docker info >/dev/null 2>&1; then
+            command -v orbctl >/dev/null 2>&1 && orbctl start || true
+            open -a OrbStack 2>/dev/null || true
+            for _ in {1..30}; do
+              docker info >/dev/null 2>&1 && break
+              sleep 1
+            done
+          fi
+          docker info >/dev/null
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to DockerHub
@@ -80,6 +104,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Ensure OrbStack is running
+        shell: bash
+        run: |
+          if ! docker info >/dev/null 2>&1; then
+            command -v orbctl >/dev/null 2>&1 && orbctl start || true
+            open -a OrbStack 2>/dev/null || true
+            for _ in {1..30}; do
+              docker info >/dev/null 2>&1 && break
+              sleep 1
+            done
+          fi
+          docker info >/dev/null
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Login to DockerHub
